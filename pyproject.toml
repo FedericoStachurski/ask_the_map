@@ -1,0 +1,8 @@
+[project]
+name = "ask-the-map"
+version = "0.1.0"
+description = "Multimodal geospatial search engine"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
