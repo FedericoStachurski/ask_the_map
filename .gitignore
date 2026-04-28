@@ -25,3 +25,9 @@ models/*
 # OS
 .DS_Store
 Thumbs.db
+
+*.egg-info/
+build/
+dist/
+__pycache__/
+*.pyc

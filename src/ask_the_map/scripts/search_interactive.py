@@ -104,8 +104,8 @@ def parse_args():
 
     parser.add_argument("--k", type=int, default=50)
     parser.add_argument("--threshold", type=float, default=0.0)
-    parser.add_argument("--w-text", type=float, default=0.7)
-    parser.add_argument("--w-img", type=float, default=0.3)
+    parser.add_argument("--w-text", type=float, default=0.3)
+    parser.add_argument("--w-img", type=float, default=0.7)
 
     parser.add_argument(
         "--fusion",
