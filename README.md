@@ -1,7 +1,7 @@
 <p align="center">
-  <img src="static/CommuniMap_Logo_Colour_horizontal_5000px.png" width="360"/>
+  <img src="static/CommuniMap_Logo_Colour_horizontal_5000px.png" width="260"/>
   &nbsp;&nbsp;&nbsp;
-  <img src="static/Media_986283_smxx.png" width="110"/>
+  <img src="static/Media_986283_smxx.png" width="310"/>
 </p>
 
 # Ask the Map
