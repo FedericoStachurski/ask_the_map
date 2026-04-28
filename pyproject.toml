@@ -1,8 +1,45 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ask-the-map"
 version = "0.1.0"
-description = "Multimodal geospatial search engine"
-dependencies = []
+description = "Multimodal geospatial search over CommuniMap data"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "Federico Stachurski" }
+]
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "openpyxl",
+    "faiss-cpu",
+    "folium",
+    "branca",
+    "torch",
+    "transformers",
+    "sentence-transformers",
+    "Pillow",
+    "requests",
+    "tqdm",
+    "pyyaml"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "ruff"
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.scripts]
+ask-map-build = "ask_the_map.scripts.build_embeddings:main"
+ask-map-search = "ask_the_map.scripts.search_interactive:main"
+ask-map-map = "ask_the_map.scripts.make_map:main"
+ask-map-download-model = "ask_the_map.scripts.download_models:main"
