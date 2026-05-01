@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+#!/usr/bin/env python3
+
 import argparse
 import bisect
 import csv
@@ -135,6 +137,107 @@ def parse_args():
     return parser.parse_args()
 
 
+def save_json(path: Path, payload):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def save_normalized_score_distribution(
+    output_dir: Path,
+    query: str,
+    norm_text_dict,
+    norm_img_dict,
+    meta,
+    bins: int = 30,
+    image_agg: str = "mean",  # or "max"
+):
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    query_name = safe_filename(query)
+    base = f"{query_name}_normalized_scores"
+
+    # -----------------------------
+    # Collapse by source_id
+    # -----------------------------
+    rows = []
+
+    all_idxs = sorted(set(norm_text_dict).union(norm_img_dict))
+
+    for idx in all_idxs:
+        item = meta[idx]
+        source_id = str(item.get("source_id", item.get("id")))
+
+        rows.append(
+            {
+                "source_id": source_id,
+                "norm_text_score": norm_text_dict.get(idx),
+                "norm_img_score": norm_img_dict.get(idx),
+            }
+        )
+
+    df = pd.DataFrame(rows)
+
+    if df.empty:
+        return None, None
+
+    if image_agg == "max":
+        grouped = df.groupby("source_id", as_index=False).agg(
+            norm_text_score=("norm_text_score", "mean"),
+            norm_img_score=("norm_img_score", "max"),
+        )
+    else:
+        grouped = df.groupby("source_id", as_index=False).agg(
+            norm_text_score=("norm_text_score", "mean"),
+            norm_img_score=("norm_img_score", "mean"),
+        )
+
+    # -----------------------------
+    # Save collapsed values
+    # -----------------------------
+    csv_path = output_dir / f"{base}.csv"
+    grouped.to_csv(csv_path, index=False)
+
+    # -----------------------------
+    # Plot histogram
+    # -----------------------------
+    plt.figure(figsize=(8, 5))
+
+    if not grouped["norm_text_score"].isna().all():
+        plt.hist(
+            grouped["norm_text_score"].dropna(),
+            bins=bins,
+            alpha=0.6,
+            label="Text",
+            histtype="stepfilled",
+            edgecolor="black",
+            linewidth=1.7,
+        )
+
+    if not grouped["norm_img_score"].isna().all():
+        plt.hist(
+            grouped["norm_img_score"].dropna(),
+            bins=bins,
+            alpha=0.6,
+            label="Image",
+            histtype="stepfilled",
+            edgecolor="black",
+            linewidth=1.7,
+        )
+    # plt.yscale("log")
+    plt.xlabel("Normalized score")
+    plt.ylabel("Frequency")
+    # plt.title(f"Source-level normalized score distributions\n{query}")
+    plt.legend()
+    plt.tight_layout()
+
+    png_path = output_dir / f"{base}.png"
+    plt.savefig(png_path, dpi=160)
+    plt.close()
+
+    return csv_path, png_path
+
+
 def build_relevance_set_from_table(
     meta,
     df,
@@ -237,12 +340,6 @@ def choose_validation_config():
             "TREE": {"yes"},
         },
     }
-
-
-def save_json(path: Path, payload):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
 def save_validation_summary_csv(path: Path, summary, query, fusion_mode):
@@ -383,23 +480,26 @@ def main():
     validation_dir = embedding_folder / "validation"
     results_dir = embedding_folder / "results"
     maps_dir = embedding_folder / "maps"
+    score_plots_dir = embedding_folder / "score_distributions"
 
     validation_dir.mkdir(parents=True, exist_ok=True)
     results_dir.mkdir(parents=True, exist_ok=True)
     maps_dir.mkdir(parents=True, exist_ok=True)
+    score_plots_dir.mkdir(parents=True, exist_ok=True)
 
     device = resolve_device(args.device)
     validate_k_list = parse_k_list(args.validate_k_list)
 
     print("\n[SETUP]")
-    print(f"Embedding folder: {embedding_folder}")
-    print(f"Text embeddings:  {text_path}")
-    print(f"Image embeddings: {image_path}")
-    print(f"Metadata:         {meta_path}")
-    print(f"Device:           {device}")
-    print(f"Results folder:   {results_dir}")
-    print(f"Maps folder:      {maps_dir}")
-    print(f"Validation folder:{validation_dir}\n")
+    print(f"Embedding folder:     {embedding_folder}")
+    print(f"Text embeddings:      {text_path}")
+    print(f"Image embeddings:     {image_path}")
+    print(f"Metadata:             {meta_path}")
+    print(f"Device:               {device}")
+    print(f"Results folder:       {results_dir}")
+    print(f"Maps folder:          {maps_dir}")
+    print(f"Validation folder:    {validation_dir}")
+    print(f"Score plots folder:   {score_plots_dir}\n")
 
     text_embs = np.load(text_path).astype("float32")
     img_embs = np.load(image_path).astype("float32")
@@ -500,6 +600,11 @@ def main():
         norm_text_dict = minmax_dict(score_text_dict)
         norm_img_dict = minmax_dict(score_img_dict)
 
+        score_diagnostics = {
+            "norm_text_dict": norm_text_dict,
+            "norm_img_dict": norm_img_dict,
+        }
+
         text_norm_scores = sorted(norm_text_dict.values())
         img_norm_scores = sorted(norm_img_dict.values())
 
@@ -585,7 +690,7 @@ def main():
 
             results = unique_results
 
-        return results[:k_search]
+        return results[:k_search], score_diagnostics
 
     def run_validation(current_fusion):
         nonlocal df_validation
@@ -621,7 +726,7 @@ def main():
         print(f"[VALIDATE] Running query: {query!r}")
         print(f"[VALIDATE] N={n}, N_rel={n_rel}")
 
-        full_results = search_multimodal(
+        full_results, _ = search_multimodal(
             query=query,
             k=len(meta),
             threshold=-1.0,
@@ -774,7 +879,7 @@ def main():
                 print("[ERROR] Invalid fusion. Use weighted, rrf, text, image.\n")
             continue
 
-        results = search_multimodal(
+        results, score_diagnostics = search_multimodal(
             query=q,
             k=current_k,
             threshold=current_threshold,
@@ -800,6 +905,24 @@ def main():
             print(f"[RESULTS] Saved to: {results_path}\n")
         else:
             print("[RESULTS] Not saved.\n")
+
+        save_score_plots_choice = input(
+            "Save normalized score distribution plot for this query? (y/n): "
+        ).strip().lower()
+
+        if save_score_plots_choice in {"y", "yes"}:
+            csv_path, png_path = save_normalized_score_distribution(
+                meta = meta,
+                output_dir=score_plots_dir,
+                query=q,
+                norm_text_dict=score_diagnostics["norm_text_dict"],
+                norm_img_dict=score_diagnostics["norm_img_dict"],
+            )
+
+            print(f"[SCORES] Saved values to: {csv_path}")
+            print(f"[SCORES] Saved plot to:   {png_path}\n")
+        else:
+            print("[SCORES] Not saved.\n")
 
         save_map = input("Save map for this query? (y/n): ").strip().lower()
 
