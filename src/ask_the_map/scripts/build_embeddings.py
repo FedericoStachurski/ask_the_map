@@ -105,8 +105,8 @@ def parse_args():
 
     parser.add_argument("--blip-model", default=DEFAULT_BLIP_MODEL)
 
-    parser.add_argument("--batch-size-blip", type=int, default=128)
-    parser.add_argument("--batch-size-text", type=int, default=128)
+    parser.add_argument("--batch-size-blip", type=int, default=8)
+    parser.add_argument("--batch-size-text", type=int, default=64)
     parser.add_argument("--batch-size-img", type=int, default=128)
     parser.add_argument("--min-text-len", type=int, default=0)
     parser.add_argument("--max-blip-tokens", type=int, default=20)
@@ -137,6 +137,67 @@ def load_blip(model_spec: str, device: str):
     model.eval()
     return processor, model
 
+def clear_memory(device):
+    import gc
+    gc.collect()
+    if device == "cuda":
+        torch.cuda.empty_cache()
+
+
+def caption_batch_blip(images, processor, model, device, max_new_tokens):
+    inputs = processor(images=images, return_tensors="pt").to(device)
+
+    with torch.inference_mode():
+        out = model.generate(**inputs, max_new_tokens=max_new_tokens)
+
+    captions = [
+        processor.decode(seq, skip_special_tokens=True).strip()
+        for seq in out
+    ]
+
+    del inputs, out
+    clear_memory(device)
+
+    return captions
+
+
+def safe_caption_batch_blip(images, processor, model, device, max_new_tokens, start_batch_size):
+    """
+    Tries BLIP captioning with the requested batch size.
+    If CUDA runs out of memory, halves the batch size and retries.
+    """
+    captions_all = []
+    i = 0
+    batch_size = start_batch_size
+
+    while i < len(images):
+        batch = images[i:i + batch_size]
+
+        try:
+            captions = caption_batch_blip(
+                batch,
+                processor,
+                model,
+                device,
+                max_new_tokens,
+            )
+            captions_all.extend(captions)
+            i += batch_size
+
+        except torch.cuda.OutOfMemoryError:
+            clear_memory(device)
+
+            if batch_size == 1:
+                print("[BLIP WARNING] CUDA OOM even at batch size 1. Skipping one image.")
+                captions_all.append("")
+                i += 1
+            else:
+                old = batch_size
+                batch_size = max(1, batch_size // 2)
+                print(f"[BLIP WARNING] CUDA OOM. Reducing BLIP batch size {old} -> {batch_size}")
+
+    return captions_all
+
 
 def caption_batch_blip(images, processor, model, device, max_new_tokens):
     inputs = processor(images=images, return_tensors="pt").to(device)
@@ -147,21 +208,56 @@ def caption_batch_blip(images, processor, model, device, max_new_tokens):
     return [processor.decode(seq, skip_special_tokens=True).strip() for seq in out]
 
 
-def fill_short_descriptions_with_blip(df, model_spec, device, min_len, batch_size, max_tokens):
-    norm_text = df["text"].fillna("").astype(str).str.strip()
-    needs = (norm_text.str.len() < min_len) & df["primary_image"].notna()
+def fill_short_descriptions_with_blip(
+    df,
+    model_spec,
+    device,
+    min_len,
+    batch_size=1,
+    max_tokens=20,
+):
+    """
+    Replace missing/short text using BLIP captioning.
+    Captions only entries where text length < min_len and an image exists.
+    """
 
-    subset = df[needs].copy()
+    norm_text = df["text"].fillna("").astype(str).str.strip()
+    lens = norm_text.str.len()
+
+    url_series = df["primary_image"].fillna("").astype(str)
+    has_url = url_series.str.strip().ne("")
+
+    needs_caption = lens < min_len
+    mask = needs_caption & has_url
+
+    print("\n[BLIP CHECK]")
+    print(f"[BLIP] MIN_TEXT_LEN: {min_len}")
+    print(f"[BLIP] Total rows: {len(df)}")
+    print(f"[BLIP] Rows with len >= MIN_TEXT_LEN: {(lens >= min_len).sum()}")
+    print(f"[BLIP] Rows with len <  MIN_TEXT_LEN: {(lens < min_len).sum()}")
+    print(f"[BLIP] Rows with usable image URL: {has_url.sum()}")
+    print(f"[BLIP] Rows needing caption: {mask.sum()}")
+
+    subset = df.loc[mask].copy()
 
     if subset.empty:
-        print("[BLIP] No captioning needed.")
+        print("[BLIP] No rows require captioning.")
         return df
 
-    first = subset.sort_values(["source_id", "image_index"]).groupby("source_id").first().reset_index()
+    # Only caption the first image per source_id
+    first = (
+        subset.sort_values(["source_id", "image_index"])
+        .groupby("source_id")
+        .first()
+        .reset_index()
+    )
+
+    print(f"[BLIP] Unique source_ids to caption: {len(first)}")
+    print(f"[BLIP] Requested batch size: {batch_size}")
 
     processor, model = load_blip(model_spec, device)
 
-    for i in tqdm(range(0, len(first), batch_size), desc="[BLIP]"):
+    for i in tqdm(range(0, len(first), batch_size), desc="[BLIP] Captioning"):
         batch = first.iloc[i:i + batch_size]
 
         imgs = []
@@ -169,17 +265,25 @@ def fill_short_descriptions_with_blip(df, model_spec, device, min_len, batch_siz
 
         for _, row in batch.iterrows():
             img = download_image(row["primary_image"])
-            if img:
+            if img is not None:
                 imgs.append(img)
                 ids.append(row["source_id"])
 
         if not imgs:
             continue
 
-        captions = caption_batch_blip(imgs, processor, model, device, max_tokens)
+        captions = safe_caption_batch_blip(
+            imgs,
+            processor,
+            model,
+            device,
+            max_tokens,
+            start_batch_size=batch_size,
+        )
 
         for sid, cap in zip(ids, captions):
-            df.loc[df["source_id"] == sid, "text"] = cap
+            if cap:
+                df.loc[df["source_id"] == sid, "text"] = cap
 
     return df
 
@@ -291,6 +395,7 @@ def main():
             "primary_image": imgs[i],
             "lat": df.loc[i, "LATITUDE"],
             "lon": df.loc[i, "LONGITUDE"],
+            "model_name": model_name,
         }
         for i in range(len(df))
     ]
