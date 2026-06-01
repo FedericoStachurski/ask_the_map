@@ -95,6 +95,9 @@ def load_communimap_data(path, expand_images=True):
     print(f"[DATA] Loading CommuniMap data from: {path}")
 
     df = load_raw_dataframe(path)
+
+    df.columns = df.columns.astype(str).str.strip()
+
     print(f"[DATA] Loaded dataframe: {df.shape[0]} rows, {df.shape[1]} columns")
 
     lat_col = get_first_existing_column(df, ["LATITUDE", "Latitude", "latitude", "lat"])
@@ -107,6 +110,8 @@ def load_communimap_data(path, expand_images=True):
         ["DESCRIPTION", "Description", "description", "TEXT", "text"],
     )
     id_col = get_first_existing_column(df, ["ID", "id", "source_id", "SOURCE_ID"])
+    created_at_col = get_first_existing_column(
+    df,["CREATED_AT", "Created At", "created_at", "created", "DATE", "date"])
 
     if lat_col is None or lon_col is None:
         raise ValueError(
@@ -127,6 +132,7 @@ def load_communimap_data(path, expand_images=True):
     print(f"  latitude   <- {lat_col}")
     print(f"  longitude  <- {lon_col}")
     print(f"  media cols <- {len(media_cols)} columns")
+    print(f"  created_at <- {created_at_col if created_at_col else 'not found'}")
 
     rows = []
 
@@ -147,6 +153,12 @@ def load_communimap_data(path, expand_images=True):
             str(row.get(text_col)).strip()
             if text_col is not None and pd.notna(row.get(text_col))
             else ""
+        )
+
+        created_at = (
+            row.get(created_at_col)
+            if created_at_col is not None and pd.notna(row.get(created_at_col))
+            else None
         )
 
         image_values = []
@@ -173,6 +185,7 @@ def load_communimap_data(path, expand_images=True):
                         "LATITUDE": lat,
                         "LONGITUDE": lon,
                         "primary_image": "",
+                        "CREATED_AT": created_at,
                     }
                 )
             continue
@@ -188,6 +201,7 @@ def load_communimap_data(path, expand_images=True):
                         "LATITUDE": lat,
                         "LONGITUDE": lon,
                         "primary_image": image_info["primary_image"],
+                        "CREATED_AT": created_at,
                     }
                 )
         else:
@@ -201,6 +215,7 @@ def load_communimap_data(path, expand_images=True):
                     "LATITUDE": lat,
                     "LONGITUDE": lon,
                     "primary_image": first["primary_image"],
+                    "CREATED_AT": created_at,
                 }
             )
 
@@ -222,6 +237,7 @@ def load_communimap_data(path, expand_images=True):
             "LATITUDE",
             "LONGITUDE",
             "primary_image",
+            "CREATED_AT"
         ]
     ]
 

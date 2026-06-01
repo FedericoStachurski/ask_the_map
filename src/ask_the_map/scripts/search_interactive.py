@@ -503,6 +503,11 @@ def main():
 
     with open(meta_path, "r", encoding="utf-8") as f:
         meta = json.load(f)
+    
+    print("[DEBUG] First meta keys:")
+    print(meta[0].keys())
+    print("[DEBUG] First meta CREATED_AT:", meta[0].get("CREATED_AT"))
+    print("[DEBUG] First meta submission_date:", meta[0].get("submission_date"))
 
     if len(meta) != text_embs.shape[0]:
         raise ValueError("Metadata length does not match text embeddings.")
@@ -670,6 +675,10 @@ def main():
                     "lon": float(item["lon"]),
                     "image": item.get("primary_image"),
                     "primary_image": item.get("primary_image"),
+
+                    # Pass submission date through to saved JSON and map
+                    "CREATED_AT": item.get("CREATED_AT"),
+                    "submission_date": item.get("submission_date"),
                 }
             )
 
@@ -927,6 +936,10 @@ def main():
             map_path = maps_dir / f"{query_name}.html"
 
             m = build_map(results)
+            print("[DEBUG] First result keys before map:")
+            print(results[0].keys())
+            print("[DEBUG] First result CREATED_AT:", results[0].get("CREATED_AT"))
+            print("[DEBUG] First result submission_date:", results[0].get("submission_date"))
 
             if m is not None:
                 m.save(str(map_path))

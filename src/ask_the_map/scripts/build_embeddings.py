@@ -6,6 +6,7 @@ from io import BytesIO
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import requests
 import torch
 from PIL import Image
@@ -66,9 +67,54 @@ def prompt_for_model():
             continue
 
         return model_name
+    
 
+def clean_created_at(value):
+    """
+    Convert CommuniMap CREATED_AT values into YYYY-MM-DD.
+    Example:
+        24/04/2026 10:58 -> 2026-04-24
+    """
+    if value is None:
+        return None
+
+    try:
+        dt = pd.to_datetime(value, dayfirst=True, errors="coerce")
+        if pd.isna(dt):
+            return None
+        return dt.date().isoformat()
+    except Exception:
+        return None
+
+
+def safe_value(value):
+    """
+    Convert pandas / numpy values to JSON-safe Python values.
+    """
+    if value is None:
+        return None
+
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+
+    # pandas Timestamp -> string
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+
+    # numpy scalar -> normal Python scalar
+    if isinstance(value, np.generic):
+        return value.item()
+
+    return value
 
 def require_local_model(model_name: str) -> Path:
+    """
+    Check that the requested embedding model is registered and downloaded locally.
+    Returns the local model path.
+    """
     if model_name not in MODEL_MAP:
         raise ValueError(f"Unknown model '{model_name}'.")
 
@@ -81,7 +127,6 @@ def require_local_model(model_name: str) -> Path:
         )
 
     return model_path
-
 
 # =========================================================
 # ARGPARSE
@@ -385,20 +430,29 @@ def main():
     np.save(str(output_prefix) + "_text.npy", text_vecs)
     np.save(str(output_prefix) + "_image.npy", img_vecs)
 
-    meta = [
-        {
-            "id": str(i),
-            "source_id": str(df.loc[i, "source_id"]),
-            "image_index": int(df.loc[i, "image_index"]),
-            "media_column": str(df.loc[i, "media_column"]),
-            "text": texts[i],
-            "primary_image": imgs[i],
-            "lat": df.loc[i, "LATITUDE"],
-            "lon": df.loc[i, "LONGITUDE"],
-            "model_name": model_name,
-        }
-        for i in range(len(df))
-    ]
+    meta = []
+
+    for i in range(len(df)):
+        created_at_raw = df.loc[i, "CREATED_AT"] if "CREATED_AT" in df.columns else None
+        created_at_safe = safe_value(created_at_raw)
+
+        meta.append(
+            {
+                "id": str(i),
+                "source_id": str(df.loc[i, "source_id"]),
+                "image_index": int(df.loc[i, "image_index"]),
+                "media_column": str(df.loc[i, "media_column"]),
+                "text": texts[i],
+                "primary_image": imgs[i],
+                "lat": safe_value(df.loc[i, "LATITUDE"]),
+                "lon": safe_value(df.loc[i, "LONGITUDE"]),
+                "model_name": model_name,
+
+                # Submission date from original CommuniMap/SPOTTERON export
+                "CREATED_AT": created_at_safe,
+                "submission_date": clean_created_at(created_at_safe),
+            }
+        )
 
     with open(str(output_prefix) + "_meta.json", "w") as f:
         json.dump(meta, f, indent=2)
