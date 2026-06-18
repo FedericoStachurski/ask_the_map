@@ -25,7 +25,9 @@ dependencies = [
     "Pillow",
     "requests",
     "tqdm",
-    "pyyaml"
+    "pyyaml",
+    "streamlit",
+    "streamlit-folium",
 ]
 
 [project.optional-dependencies]
@@ -43,3 +45,4 @@ ask-map-build = "ask_the_map.scripts.build_embeddings:main"
 ask-map-search = "ask_the_map.scripts.search_interactive:main"
 ask-map-map = "ask_the_map.scripts.make_map:main"
 ask-map-download-model = "ask_the_map.scripts.download_models:main"
+ask-map-ui = "ask_the_map.scripts.launch_ask_map_ui:main"
