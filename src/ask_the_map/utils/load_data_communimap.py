@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import pandas as pd
+import csv
 
 
 def load_raw_dataframe(path):
@@ -12,23 +13,130 @@ def load_raw_dataframe(path):
 
     suffix = path.suffix.lower()
 
+    # ---------------------------------------------------------
+    # Excel
+    # ---------------------------------------------------------
     if suffix in [".xlsx", ".xls"]:
         print(f"[DATA] Detected Excel file: {path}")
         return pd.read_excel(path)
 
+    # ---------------------------------------------------------
+    # CSV
+    # ---------------------------------------------------------
     if suffix == ".csv":
-        try:
-            return pd.read_csv(path, sep=None, engine="python")
-        except Exception as e1:
+        print(f"[DATA] Detected CSV file: {path}")
+
+        # CommuniMap / SPOTTERON exports are semicolon-delimited.
+        # Use Python's csv module because some records contain
+        # fewer/more trailing MEDIA fields than declared in the header.
+        with open(
+            path,
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as f:
+            reader = csv.reader(
+                f,
+                delimiter=";",
+                quotechar='"',
+            )
+
             try:
-                return pd.read_csv(path, sep=",")
-            except Exception as e2:
-                try:
-                    return pd.read_csv(path, sep=";")
-                except Exception as e3:
-                    raise ValueError(
-                        f"Could not parse CSV.\nAuto: {e1}\nComma: {e2}\nSemicolon: {e3}"
-                    )
+                header = next(reader)
+            except StopIteration:
+                raise ValueError(f"CSV file is empty: {path}")
+
+            rows = list(reader)
+
+        expected_cols = len(header)
+
+        print(f"[DATA] CSV header columns: {expected_cols}")
+
+        # -----------------------------------------------------
+        # Find widest row
+        # -----------------------------------------------------
+        max_cols = max(
+            [expected_cols] + [len(row) for row in rows]
+        )
+
+        if max_cols > expected_cols:
+            extra_cols = max_cols - expected_cols
+
+            print(
+                f"[DATA] Found records containing up to "
+                f"{extra_cols} extra trailing media field(s)."
+            )
+
+            # Find current highest MEDIA_* index
+            media_indices = []
+
+            for col in header:
+                col = str(col)
+
+                if col.startswith("MEDIA_"):
+                    try:
+                        media_indices.append(
+                            int(col.rsplit("_", 1)[1])
+                        )
+                    except (ValueError, IndexError):
+                        pass
+
+            next_media_index = (
+                max(media_indices) + 1
+                if media_indices
+                else 0
+            )
+
+            # Add columns for the additional image URLs
+            for i in range(extra_cols):
+                new_col = f"MEDIA_2635_{next_media_index + i}"
+                header.append(new_col)
+
+                print(
+                    f"[DATA] Added inferred media column: {new_col}"
+                )
+
+        target_cols = len(header)
+
+        # -----------------------------------------------------
+        # Normalise row widths
+        # -----------------------------------------------------
+        cleaned_rows = []
+
+        n_padded = 0
+
+        for row in rows:
+            if len(row) < target_cols:
+                row = row + [""] * (target_cols - len(row))
+                n_padded += 1
+
+            # This should normally never happen now because
+            # target_cols == width of widest record.
+            elif len(row) > target_cols:
+                raise ValueError(
+                    f"Unexpected row with {len(row)} fields "
+                    f"after expanding header to {target_cols} fields."
+                )
+
+            cleaned_rows.append(row)
+
+        if n_padded:
+            print(
+                f"[DATA] Padded {n_padded} record(s) "
+                f"with missing trailing fields."
+            )
+
+        df = pd.DataFrame(
+            cleaned_rows,
+            columns=header,
+        )
+
+        print(
+            f"[DATA] Parsed CSV successfully: "
+            f"{len(df)} rows, {len(df.columns)} columns"
+        )
+
+        return df
 
     raise ValueError(f"Unsupported file type: {suffix}")
 
@@ -162,30 +270,24 @@ def load_communimap_data(path, expand_images=True):
         )
 
         image_values = []
+        seen_urls = set()
 
         for media_col in media_cols:
             val = row.get(media_col)
 
             if isinstance(val, str) and val.strip():
+                url = val.strip()
+
+                # IMAGE and MEDIA_2635_0 are frequently the same image
+                if url in seen_urls:
+                    continue
+
+                seen_urls.add(url)
+
                 image_values.append(
                     {
                         "media_column": str(media_col),
-                        "primary_image": val.strip(),
-                    }
-                )
-
-        if not image_values:
-            if not expand_images:
-                rows.append(
-                    {
-                        "source_id": source_id,
-                        "image_index": 0,
-                        "media_column": None,
-                        "text": text,
-                        "LATITUDE": lat,
-                        "LONGITUDE": lon,
-                        "primary_image": "",
-                        "CREATED_AT": created_at,
+                        "primary_image": url,
                     }
                 )
             continue
