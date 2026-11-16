@@ -1,4 +1,4 @@
-name: ask_map_env
+name: ask_the_map_env
 channels:
   - conda-forge
   - defaults
@@ -520,6 +520,7 @@ dependencies:
       - torch==2.9.0+cu128
       - torchaudio==2.9.0+cu128
       - torchvision==0.24.0+cu128
+      - treeco==0.1.0
       - triton==3.5.0
       - typer-slim==0.21.1
       - uvicorn==0.44.0
