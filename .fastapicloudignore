@@ -1,0 +1,21 @@
+# =========================================================
+# ASK THE MAP — FASTAPI CLOUD DEPLOYMENT
+# =========================================================
+
+# Include the CLIP model
+!models/
+!models/clip/
+!models/clip/clip-b32/
+!models/clip/clip-b32/**
+
+# Include the September 2026 embeddings
+!outputs/
+!outputs/Sept2026_CLIP/
+
+!outputs/Sept2026_CLIP/Sept2026_CLIP_text.npy
+!outputs/Sept2026_CLIP/Sept2026_CLIP_image.npy
+!outputs/Sept2026_CLIP/Sept2026_CLIP_meta.json
+
+# Exclude locally generated maps
+outputs/Sept2026_CLIP/saved_ui_maps/
+

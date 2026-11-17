@@ -30,10 +30,18 @@ from ask_the_map.scripts.ask_pipeline_ui import AskMapPipeline
 # PATHS
 # =========================================================
 
-ROOT_DIR = Path(__file__).resolve().parents[3]
+ROOT_DIR = Path(
+    os.getenv("ASK_MAP_ROOT_DIR", os.getcwd())
+).expanduser().resolve()
 
 STATIC_DIR = ROOT_DIR / "static"
 FRONTEND_DIR = STATIC_DIR / "fastapi"
+
+# Default CLIP model location for cloud deployment
+os.environ.setdefault(
+    "ASK_MAP_MODEL_DIR",
+    str(ROOT_DIR / "models" / "clip" / "clip-b32")
+)
 
 
 # =========================================================
@@ -42,18 +50,17 @@ FRONTEND_DIR = STATIC_DIR / "fastapi"
 
 def get_embedding_folder():
 
-    configured_path = os.getenv("ASK_MAP_EMBEDDING_DIR")
+    configured_path = os.getenv(
+        "ASK_MAP_EMBEDDING_DIR",
+        "outputs/Sept2026_CLIP"
+    )
 
-    if not configured_path:
-        raise RuntimeError(
-            "ASK_MAP_EMBEDDING_DIR is not configured. "
-            "Set it to the folder containing the "
-            "precomputed Ask the Map embeddings."
-        )
+    embedding_folder = Path(configured_path).expanduser()
 
-    embedding_folder = Path(
-        configured_path
-    ).expanduser().resolve()
+    if not embedding_folder.is_absolute():
+        embedding_folder = ROOT_DIR / embedding_folder
+
+    embedding_folder = embedding_folder.resolve()
 
     if not embedding_folder.is_dir():
         raise RuntimeError(

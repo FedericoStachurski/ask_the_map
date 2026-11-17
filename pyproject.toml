@@ -7,12 +7,14 @@ name = "ask-the-map"
 version = "0.1.0"
 description = "Multimodal geospatial search over CommuniMap data"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = "==3.11.*"
 authors = [
     { name = "Federico Stachurski" }
 ]
 
 dependencies = [
+    # FastAPI backend
+    "fastapi[standard]",
     "numpy",
     "pandas",
     "openpyxl",
@@ -47,3 +49,9 @@ ask-map-map = "ask_the_map.scripts.make_map:main"
 ask-map-download-model = "ask_the_map.scripts.download_models:main"
 ask-map-ui = "ask_the_map.scripts.launch_ask_map_ui:main"
 ask-map-prep-datahub = "ask_the_map.utils.prep_data_for_datahub:main"
+
+# FASTAPI CLOUD DEPLOYMENT
+# =========================================================
+
+[tool.fastapi]
+entrypoint = "ask_the_map.api.main:app"
