@@ -2,13 +2,29 @@
 # ASK THE MAP — FASTAPI CLOUD DEPLOYMENT
 # =========================================================
 
-# Include the CLIP model
+# Exclude research data
+data/
+
+# Exclude all models and outputs by default
+models/**
+outputs/**
+
+# =========================================================
+# INCLUDE ONLY CLIP-B32
+# =========================================================
+
 !models/
 !models/clip/
 !models/clip/clip-b32/
 !models/clip/clip-b32/**
 
-# Include the September 2026 embeddings
+# Explicitly exclude CLIP-B16
+models/clip/clip-b16/
+
+# =========================================================
+# INCLUDE ONLY SEPTEMBER 2026 EMBEDDINGS
+# =========================================================
+
 !outputs/
 !outputs/Sept2026_CLIP/
 
@@ -16,6 +32,8 @@
 !outputs/Sept2026_CLIP/Sept2026_CLIP_image.npy
 !outputs/Sept2026_CLIP/Sept2026_CLIP_meta.json
 
-# Exclude locally generated maps
+# Exclude generated maps
 outputs/Sept2026_CLIP/saved_ui_maps/
 
+# Include frontend HTML
+!static/fastapi/index.html
