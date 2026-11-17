@@ -566,10 +566,21 @@ def build_map(
 
         img_html = ""
         if img:
-            img_html = f'<img src="{img}" width="240">'
+            img_html = (
+                f'<img src="{img}" '
+                f'style="width:100%; max-width:100%; height:auto; display:block;">'
+            )
 
         popup_html = f"""
-        <div style="width:260px;">
+            <div style="
+                width:260px;
+                max-width:100%;
+                max-height:320px;
+                overflow-y:auto;
+                -webkit-overflow-scrolling:touch;
+                overscroll-behavior:contain;
+                touch-action:pan-y;
+            ">
             <b>ID:</b> {source_id}<br>
             <b>Submitted:</b> {submission_display}<br>
             <b>Image index:</b> {image_index}<br>
@@ -588,7 +599,7 @@ def build_map(
             fill=True,
             fill_opacity=0.85,
             color="red",
-            popup=folium.Popup(popup_html, max_width=280),
+            popup=folium.Popup(popup_html, max_width=280, max_height=320,),
             tooltip=f"ID: {source_id} | score: {score:.3f} | submitted: {submission_display}",
         )
 
