@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Ask the Map</title>
+
+    <link rel="stylesheet" href="/static/fastapi/style.css">
+</head>
+
+<body>
+
+<div class="app-shell">
+
+    <!-- ==========================================
+         SIDEBAR
+    ========================================== -->
+
+    <aside class="sidebar">
+
+        <h2>Ask-the-Map data</h2>
+
+        <label for="embedding-selector">Embedding run</label>
+
+        <select id="embedding-selector" disabled>
+            <option>Loading dataset...</option>
+        </select>
+
+        <h3>Selected data</h3>
+
+        <div class="param-card">
+
+            <div class="param-row">
+                <span class="param-key">Embedding run</span>
+                <span class="param-value" id="embedding-run">Loading...</span>
+            </div>
+
+            <div class="param-row">
+                <span class="param-key">Model</span>
+                <span class="param-value" id="model-name">Loading...</span>
+            </div>
+
+            <div class="param-row">
+                <span class="param-key">Metadata rows</span>
+                <span class="param-value" id="metadata-rows">—</span>
+            </div>
+
+            <div class="param-row">
+                <span class="param-key">Text embeddings</span>
+                <span class="param-value" id="text-embeddings">—</span>
+            </div>
+
+            <div class="param-row">
+                <span class="param-key">Image embeddings</span>
+                <span class="param-value" id="image-embeddings">—</span>
+            </div>
+
+        </div>
+
+        <hr>
+
+        <h2>Saved maps</h2>
+
+        <p class="muted">
+            No saved maps yet.
+        </p>
+
+    </aside>
+
+
+    <!-- ==========================================
+         MAIN CONTENT
+    ========================================== -->
+
+    <main class="content">
+
+        <!-- HEADER -->
+
+        <div class="topline">
+
+            <div>
+                <h1>Ask the Map</h1>
+
+                <p class="subtitle">
+                    Search CommuniMap observations in plain English
+                    and visualise retrieved points on an interactive map.
+                </p>
+            </div>
+
+            <div class="brand" id="brand">
+            <img
+                id="brand-logo"
+                src="/static/CommuniMap_Logo_Colour_horizontal_5000px.png"
+                alt="CommuniMap logo"
+            >
+        </div>
+
+        </div>
+
+
+        <!-- EMBEDDING BADGE -->
+
+        <div class="run-chip">
+            Embedding folder:
+            <span id="active-run">Loading...</span>
+        </div>
+
+
+        <!-- ==========================================
+             SEARCH FORM
+        ========================================== -->
+
+        <form class="query-card" id="query-form">
+
+            <label for="query">Query</label>
+
+            <input
+                id="query"
+                type="text"
+                placeholder="e.g. flooding near schools, urban trees, unsafe crossings"
+                required
+            >
+
+            <div class="controls">
+
+                <!-- TOP K -->
+
+                <div class="field">
+                    <label for="top-k">
+                        Top K
+                        <output id="top-k-value">100</output>
+                    </label>
+
+                    <input
+                        id="top-k"
+                        type="range"
+                        min="10"
+                        max="5000"
+                        step="10"
+                        value="100"
+                    >
+                </div>
+
+
+                <!-- THRESHOLD -->
+
+                <div class="field">
+                    <label for="threshold">
+                        Threshold
+                        <output id="threshold-value">0.00</output>
+                    </label>
+
+                    <input
+                        id="threshold"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value="0"
+                    >
+                </div>
+
+
+                <!-- FUSION -->
+
+                <div class="field">
+                    <label for="fusion">Fusion</label>
+
+                    <select id="fusion">
+                        <option value="weighted">weighted</option>
+                        <option value="rrf">rrf</option>
+                        <option value="text">text</option>
+                        <option value="image">image</option>
+                    </select>
+                </div>
+
+
+                <!-- TEXT WEIGHT -->
+
+                <div class="field">
+                    <label for="text-weight">
+                        Text weight
+                        <output id="text-weight-value">0.30</output>
+                    </label>
+
+                    <input
+                        id="text-weight"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value="0.3"
+                    >
+                </div>
+
+
+                <!-- IMAGE WEIGHT -->
+
+                <div class="field">
+                    <label for="image-weight">
+                        Image weight
+                        <output id="image-weight-value">0.70</output>
+                    </label>
+
+                    <input
+                        id="image-weight"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value="0.7"
+                    >
+                </div>
+
+
+                <!-- RRF K -->
+
+                <div class="field">
+                    <label for="rrf-k">RRF k</label>
+
+                    <input
+                        id="rrf-k"
+                        type="number"
+                        min="1"
+                        max="200"
+                        value="60"
+                    >
+                </div>
+
+            </div>
+
+
+            <!-- SEARCH BUTTON -->
+
+            <button
+                type="submit"
+                id="search-button"
+                class="primary-btn"
+            >
+                Search map
+            </button>
+
+            <p
+                id="status"
+                class="status"
+                role="status"
+                aria-live="polite"
+            ></p>
+
+        </form>
+
+
+        <!-- ==========================================
+             INTERACTIVE MAP
+        ========================================== -->
+
+        <section class="section">
+
+            <h2>Current map</h2>
+
+            <div class="map-card">
+
+                <div id="map-container">
+
+                    <div id="map-placeholder">
+
+                        <span>🗺️</span>
+
+                        <strong>
+                            Map will appear here
+                        </strong>
+
+                        <small>
+                            Enter a query and click Search map.
+                        </small>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ==========================================
+             RETRIEVED RESULTS
+        ========================================== -->
+
+        <section class="section">
+
+            <h2>Retrieved results</h2>
+
+            <div class="metric-pill">
+                Number of results:
+                <span id="result-count">0</span>
+            </div>
+
+            <div class="results-card" id="results">
+
+                <p class="muted">
+                    Run a search to retrieve CommuniMap observations.
+                </p>
+
+            </div>
+
+        </section>
+
+
+       <!-- ==========================================
+          RETRIEVAL SIGNAL SCATTER
+      ========================================== -->
+
+      <section class="section">
+
+          <h2>Retrieval signal scatter</h2>
+
+          <p class="subtitle">
+              Compare text and image retrieval scores for the
+              observations returned by your search.
+          </p>
+
+          <div class="scatter-card">
+
+              <div id="scatter-container">
+                  <p class="muted">
+                      Run a search to visualise the retrieval scores.
+                  </p>
+              </div>
+
+          </div>
+
+      </section>
+
+    </main>
+
+</div>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="/static/fastapi/app.js?v=20261117"></script>
+
+</body>
+</html>

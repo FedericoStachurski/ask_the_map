@@ -22,6 +22,9 @@ models/*
 !outputs/.gitkeep
 !models/.gitkeep
 
+# Allow FastAPI frontend HTML
+!static/fastapi/index.html
+
 # OS
 .DS_Store
 Thumbs.db

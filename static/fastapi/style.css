@@ -1,0 +1,311 @@
+:root{--green:#7ed321;--blue:#54bed8;--deep:#063b33;--ink:#08201d;--muted:#4b6464;--shadow:0 22px 60px rgba(0,0,0,.18)}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at top left,rgba(126,211,33,.16),transparent 34%),radial-gradient(circle at bottom right,rgba(84,190,216,.20),transparent 38%),#f7fff4;background-attachment:fixed}
+body.has-page-bg{background-image:linear-gradient(135deg,rgba(248,255,244,.965),rgba(232,250,255,.965)),var(--page-bg);background-size:auto, min(280px,18vw) auto;background-position:center,center 5.4rem;background-repeat:no-repeat;background-attachment:fixed}
+.app-shell{display:grid;grid-template-columns:282px minmax(0,1fr);min-height:100vh}.sidebar{padding:2rem 1.15rem;background:linear-gradient(180deg,rgba(234,255,223,.98),rgba(230,250,255,.98));border-right:1px solid rgba(84,190,216,.28)}.sidebar h2{font-size:1.25rem;color:var(--deep)}.sidebar h3{font-size:1rem;margin-top:1.6rem}.sidebar label, .query-card label{display:block;font-weight:800;color:var(--deep);margin-bottom:.45rem}.sidebar select{width:100%}.sidebar hr{border:0;border-top:1px solid #b8ddda;margin:1.7rem 0}.content{width:100%;max-width:1180px;padding:3.2rem 2.5rem 5rem;margin:0 auto;min-width:0}.topline{display:flex;align-items:flex-start;justify-content:space-between;gap:2rem}h1{font-size:clamp(2.6rem,4.5vw,3.3rem);letter-spacing:-.05em;color:var(--deep);line-height:1.06;margin:0 0 .55rem;font-weight:850}h2{color:var(--deep);letter-spacing:-.03em}p.subtitle{margin:.3rem 0 1.15rem;max-width:720px;color:#315b56;font-size:1.05rem}.brand{flex:0 0 min(240px,22vw);padding:.65rem .8rem;border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 12px 34px rgba(30,90,80,.18);border:4px solid #111}.brand img{display:block;width:100%}.run-chip,.metric-pill{display:inline-block;background:linear-gradient(90deg,#dfffbd,#dff8ff);border:2px solid #111;color:var(--deep);font-weight:800;border-radius:999px;padding:.45rem .8rem;margin:.4rem 0 1.5rem;box-shadow:0 10px 28px rgba(30,90,80,.12)}.metric-pill{border-width:3px;padding:.4rem .75rem;margin:0 0 .65rem}
+.query-card{background:rgba(255,255,255,.91);border:8px solid #111;border-radius:28px;padding:1.4rem;box-shadow:var(--shadow);overflow:hidden}.has-card-bg .query-card{background-image:linear-gradient(135deg,rgba(255,255,255,.84),rgba(235,252,255,.84)),var(--card-bg);background-position:center;background-size:cover}.query-card input[type=text],.query-card input[type=number],select{border:1px solid rgba(8,32,29,.2);border-radius:14px;background:rgba(255,255,255,.96);color:#08201d;padding:.7rem .9rem;font:inherit}.query-card>input[type=text]{width:100%;font-size:1rem}.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.1rem;margin:1.3rem 0}.field{min-width:0}.field input[type=range]{width:100%;accent-color:var(--green)}.field input[type=number],.field select{width:100%}.field output{font-size:.88rem;font-weight:700;color:#315b56}.primary-btn{background:linear-gradient(90deg,var(--green),var(--blue));font-weight:850;border:0;border-radius:999px;padding:.78rem 1.45rem;color:#05211d;font-size:1rem;cursor:pointer;box-shadow:0 12px 30px rgba(30,90,80,.18)}.primary-btn:hover{transform:translateY(-1px);box-shadow:0 16px 38px rgba(30,90,80,.24)}.status{margin:1rem 0 0;color:#315b56;font-size:.92rem;min-height:1em}
+.section{margin-top:2rem}.section h2{margin-bottom:.9rem}.map-card,.results-card,.scatter-card{background:rgba(255,255,255,.94);border:8px solid #111;border-radius:28px;box-shadow:var(--shadow);overflow:hidden}.map-card{min-height:450px}.map-card #map-placeholder{min-height:450px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.7rem;text-align:center;background:linear-gradient(135deg,#eaffdf,#e6faff);padding:1.5rem;color:var(--deep)}#map-placeholder span{font-size:3.5rem}#map-placeholder small{max-width:360px;color:#315b56}.results-card,.scatter-card{padding:1.25rem}.muted{color:var(--muted)}.param-card{background:rgba(255,255,255,.88);border:3px solid #111;border-radius:16px;padding:.75rem .85rem;box-shadow:0 8px 20px rgba(30,90,80,.08)}.param-row{display:flex;justify-content:space-between;gap:.5rem;border-bottom:1px solid rgba(17,17,17,.18);padding:.38rem 0;font-size:.83rem}.param-row:last-child{border-bottom:0}.param-row span{text-align:right;color:#315b56}
+@media(max-width:900px){.app-shell{grid-template-columns:1fr}.sidebar{border-right:0;border-bottom:1px solid #b8ddda}.content{padding:2rem 1rem}.controls{grid-template-columns:repeat(2,minmax(0,1fr))}.brand{flex-basis:160px}}@media(max-width:540px){.controls{grid-template-columns:1fr}.topline{flex-direction:column}.brand{width:200px;flex:auto}.query-card{padding:1rem;border-width:6px}}
+/* Original Ask the Map styling */
+
+#map-container {
+    width: 100%;
+    min-height: 760px;
+
+    border: 8px solid #111111;
+    border-radius: 26px;
+
+    background: #ffffff;
+
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+
+    overflow: hidden;
+}
+
+.results-map {
+    width: 80%;
+    height: 760px;
+
+    border: none;
+    display: block;
+}
+
+/* =========================================================
+   RESULTS TABLE
+========================================================= */
+
+.results-scroll {
+    width: 100%;
+    max-height: 430px;
+    overflow: auto;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.96);
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    color: #062f2a;
+}
+
+.results-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+
+    background: linear-gradient(
+        90deg,
+        #eaffdf,
+        #e6faff
+    );
+
+    color: #063b33;
+    text-align: left;
+    font-weight: 850;
+    padding: 0.75rem;
+    white-space: nowrap;
+}
+
+.results-table tbody td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid rgba(84, 190, 216, 0.16);
+    vertical-align: top;
+}
+
+.results-table tbody tr:nth-child(even) {
+    background: rgba(230, 250, 255, 0.38);
+}
+
+.results-table tbody tr:hover {
+    background: rgba(223, 255, 189, 0.42);
+}
+
+.results-table .text-cell {
+    min-width: 300px;
+    max-width: 500px;
+    line-height: 1.4;
+}
+
+/* =========================================================
+   SCROLLABLE RESULTS TABLE
+========================================================= */
+
+.results-card {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.results-scroll {
+    width: 100%;
+    max-height: 450px;
+    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+
+    border-radius: 16px;
+    background: white;
+}
+
+.results-table {
+    width: 100%;
+    min-width: 1050px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.88rem;
+}
+
+.results-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+
+    padding: 12px 14px;
+
+    background: #e7f9e1;
+    color: #063b33;
+    font-weight: 800;
+    text-align: left;
+
+    border-bottom: 2px solid #a8dca5;
+}
+
+.results-table tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #e2eae6;
+    vertical-align: top;
+}
+
+.results-table tbody tr:nth-child(even) {
+    background: #f4fbf6;
+}
+
+.results-table tbody tr:hover {
+    background: #e6f7dc;
+}
+
+.results-table .text-cell {
+    min-width: 300px;
+    max-width: 500px;
+    line-height: 1.5;
+}
+
+/* =========================================================
+   RETRIEVAL SCATTER PLOT
+========================================================= */
+
+.scatter-card {
+    width: 100%;
+    min-width: 0;
+    padding: 20px;
+
+    background: rgba(255, 255, 255, 0.96);
+
+    border: 8px solid #111;
+    border-radius: 26px;
+
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+
+    overflow: hidden;
+}
+
+#scatter-container {
+    width: 100%;
+    min-width: 0;
+    height: 520px;
+}
+
+@media (max-width: 768px) {
+
+    #scatter-container {
+        height: 400px;
+    }
+
+    .scatter-card {
+        padding: 8px;
+    }
+}
+
+/* =========================================================
+   COMMUNIMAP LOGO
+========================================================= */
+
+.topline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 28px;
+}
+
+.topline > div:first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.brand {
+    position: static;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+}
+
+#brand-logo {
+    display: block;
+    width: 220px;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+@media (max-width: 768px) {
+    .topline {
+        gap: 16px;
+    }
+
+    #brand-logo {
+        width: 120px;
+    }
+}
+
+/* =========================================================
+   CURRENT MAP — COMPACT DESIGN
+========================================================= */
+
+/* Main map card */
+.map-card {
+    width: 100%;
+    height: 700px;
+    min-height: 0;
+
+    padding: 0;
+    box-sizing: border-box;
+
+    border: 8px solid #111;
+    border-radius: 28px;
+
+    overflow: hidden;
+
+    background: linear-gradient(
+        120deg,
+        #e9ffe2 0%,
+        #e4f8ff 100%
+    );
+
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+}
+
+/* Container holding the map */
+#map-container {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+
+    padding: 0;
+    margin: 0;
+
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+
+    overflow: hidden;
+}
+
+/* Placeholder shown before searching */
+#map-placeholder {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+
+    margin: 0;
+    padding: 20px;
+
+    background: transparent;
+    text-align: center;
+}
+
+/* Actual Folium map */
+.results-map {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Smaller map on mobile devices */
+@media (max-width: 768px) {
+    .map-card {
+        height: 380px;
+    }
+}
