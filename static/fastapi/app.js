@@ -573,6 +573,10 @@ async function searchMap() {
         // DISPLAY FOLIUM MAP + RESPONSIVE MOBILE TIMELINE
         // =========================================================
 
+        // =========================================================
+        // DISPLAY FOLIUM MAP + RESPONSIVE SUBMISSION TIMELINE
+        // =========================================================
+
         if (data.map_html) {
 
             const iframe = document.createElement("iframe");
@@ -580,73 +584,125 @@ async function searchMap() {
             iframe.className = "results-map";
             iframe.title = "Ask the Map search results";
 
+            let timelineInitialized = false;
             let timelineTimer = null;
 
-            iframe.addEventListener("load", () => {
+            // -----------------------------------------------------
+            // INITIALISE TIMELINE WHEN FOLIUM HAS CREATED IT
+            // -----------------------------------------------------
 
-                if (!iframe.isConnected) return;
+            function initialiseTimeline() {
 
-                console.log("[MAP] Folium iframe loaded.");
+                // Do not initialise twice or use a removed iframe
+                if (timelineInitialized || !iframe.isConnected) {
+                    return;
+                }
 
-                let attempts = 0;
-                const maxAttempts = 100;
+                try {
 
-                timelineTimer = setInterval(() => {
+                    const frameDocument = iframe.contentDocument;
 
-                    if (!iframe.isConnected) {
-                        clearInterval(timelineTimer);
+                    if (!frameDocument) {
                         return;
                     }
 
-                    attempts++;
+                    const originalTimeline = frameDocument.querySelector(
+                        ".atm-time-filter"
+                    );
 
-                    let originalTimeline = null;
-
-                    try {
-                        originalTimeline = iframe.contentDocument
-                            ?.querySelector(".atm-time-filter");
-                    } catch (error) {
-                        console.error("[TIMELINE] Iframe access failed:", error);
-                        clearInterval(timelineTimer);
+                    // Folium has not created the timeline yet
+                    if (!originalTimeline) {
                         return;
                     }
 
-                    if (originalTimeline) {
+                    console.log("[TIMELINE] Original timeline detected.");
 
-                        clearInterval(timelineTimer);
+                    // Activate responsive layout
+                    const cleanup = setupMobileTimeline(iframe);
 
-                        console.log("[TIMELINE] Original timeline found.");
+                    if (typeof cleanup === "function") {
 
-                        mobileTimelineCleanup = setupMobileTimeline(iframe);
+                        mobileTimelineCleanup = cleanup;
+                        timelineInitialized = true;
 
                         console.log(
-                            "[TIMELINE] Mobile layout initialised:",
-                            Boolean(mobileTimelineCleanup)
+                            "[TIMELINE] Responsive timeline initialised."
                         );
 
-                        return;
-                    }
-
-                    if (attempts >= maxAttempts) {
-
-                        clearInterval(timelineTimer);
-
-                        console.warn(
-                            "[TIMELINE] Timeline could not be initialised."
+                        console.log(
+                            "[TIMELINE] Mobile:",
+                            window.matchMedia("(max-width: 768px)").matches
                         );
+
+                        // Stop checking once successful
+                        if (timelineTimer !== null) {
+                            clearInterval(timelineTimer);
+                            timelineTimer = null;
+                        }
                     }
 
-                }, 100);
+                } catch (error) {
 
-            });
+                    console.error(
+                        "[TIMELINE] Initialisation error:",
+                        error
+                    );
+                }
+            }
 
+            // Keep the iframe load event as an additional trigger
+            iframe.addEventListener("load", initialiseTimeline);
+
+            // Insert the Folium map
             iframe.srcdoc = data.map_html;
 
             mapContainer.replaceChildren(iframe);
 
+            // -----------------------------------------------------
+            // START CHECKING IMMEDIATELY
+            // (Do not wait for iframe load)
+            // -----------------------------------------------------
+
+            initialiseTimeline();
+
+            let attempts = 0;
+            const maxAttempts = 120;
+
+            if (!timelineInitialized) {
+
+                timelineTimer = setInterval(() => {
+
+                    // Stop if the map was replaced
+                    if (!iframe.isConnected || timelineInitialized) {
+
+                        clearInterval(timelineTimer);
+                        timelineTimer = null;
+                        return;
+                    }
+
+                    initialiseTimeline();
+
+                    attempts++;
+
+                    if (attempts >= maxAttempts) {
+
+                        clearInterval(timelineTimer);
+                        timelineTimer = null;
+
+                        if (!timelineInitialized) {
+                            console.warn(
+                                "[TIMELINE] Initialisation timed out."
+                            );
+                        }
+                    }
+
+                }, 250);
+            }
+
         } else {
 
-            mapContainer.textContent = "No matching observations found.";
+            mapContainer.textContent =
+                "No matching observations found.";
 
         }
 
