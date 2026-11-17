@@ -271,7 +271,206 @@ function renderRetrievalScatter(results) {
     );
 }
 
+// =========================================================
+// RESPONSIVE SUBMISSION TIMELINE
+// =========================================================
 
+let mobileTimelineCleanup = null;
+
+function setupMobileTimeline(iframe) {
+
+    const container = document.getElementById("mobile-timeline");
+
+    if (!container) {
+        return null;
+    }
+
+    // Folium is displayed using srcdoc, so its document
+    // is accessible from our frontend.
+    let frameDocument;
+
+    try {
+        frameDocument = iframe.contentDocument;
+    } catch (error) {
+        console.error("[TIMELINE] Cannot access map iframe:", error);
+        return null;
+    }
+
+    if (!frameDocument) {
+        return null;
+    }
+
+    // Original Leaflet timeline
+    const original = frameDocument.querySelector(".atm-time-filter");
+
+    if (!original) {
+        console.warn("[TIMELINE] No submission timeline found.");
+        return null;
+    }
+
+    // Create a copy for the mobile interface
+    const mobile = original.cloneNode(true);
+
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+
+    // -----------------------------------------------------
+    // SYNCHRONISE MOBILE CONTROLS WITH FOLIUM
+    // -----------------------------------------------------
+
+    function syncTimeline() {
+
+        // Synchronise slider position
+        const originalSlider =
+            original.querySelector("#atm-month-slider");
+
+        const mobileSlider =
+            mobile.querySelector("#atm-month-slider");
+
+        if (originalSlider && mobileSlider) {
+            mobileSlider.value = originalSlider.value;
+        }
+
+        // Synchronise selected month label
+        const originalMonth =
+            original.querySelector("#atm-current-month-label");
+
+        const mobileMonth =
+            mobile.querySelector("#atm-current-month-label");
+
+        if (originalMonth && mobileMonth) {
+            mobileMonth.textContent = originalMonth.textContent;
+        }
+
+        // Synchronise observation count
+        const originalCount =
+            original.querySelector("#atm-filter-count");
+
+        const mobileCount =
+            mobile.querySelector("#atm-filter-count");
+
+        if (originalCount && mobileCount) {
+            mobileCount.textContent = originalCount.textContent;
+        }
+
+        // Synchronise active filter buttons
+        mobile.querySelectorAll(".atm-filter-btn").forEach(button => {
+
+            const mode = button.getAttribute("data-mode");
+
+            const originalButton = original.querySelector(
+                `.atm-filter-btn[data-mode="${mode}"]`
+            );
+
+            button.classList.toggle(
+                "active",
+                originalButton?.classList.contains("active") ?? false
+            );
+
+        });
+    }
+
+    // -----------------------------------------------------
+    // MOBILE SLIDER EVENT
+    // -----------------------------------------------------
+
+    const mobileSlider = mobile.querySelector("#atm-month-slider");
+
+    if (mobileSlider) {
+
+        mobileSlider.addEventListener("input", () => {
+
+            const originalSlider =
+                original.querySelector("#atm-month-slider");
+
+            if (!originalSlider) {
+                return;
+            }
+
+            // Update the original Folium slider
+            originalSlider.value = mobileSlider.value;
+
+            // Trigger the existing map filtering logic
+            originalSlider.dispatchEvent(
+                new iframe.contentWindow.Event("input", {
+                    bubbles: true
+                })
+            );
+
+            syncTimeline();
+
+        });
+    }
+
+    // -----------------------------------------------------
+    // MOBILE FILTER BUTTONS
+    // -----------------------------------------------------
+
+    mobile.querySelectorAll(".atm-filter-btn").forEach(button => {
+
+        button.addEventListener("click", () => {
+
+            const mode = button.getAttribute("data-mode");
+
+            const originalButton = original.querySelector(
+                `.atm-filter-btn[data-mode="${mode}"]`
+            );
+
+            if (originalButton) {
+
+                // Trigger the existing Folium filter
+                originalButton.click();
+
+                syncTimeline();
+            }
+
+        });
+    });
+
+    // -----------------------------------------------------
+    // RESPONSIVE LAYOUT
+    // -----------------------------------------------------
+
+    function updateLayout() {
+
+        if (!iframe.isConnected) {
+            return;
+        }
+
+        if (mediaQuery.matches) {
+
+            // Mobile: hide timeline inside map
+            original.style.display = "none";
+
+            // Show controls underneath map
+            container.replaceChildren(mobile);
+
+            syncTimeline();
+
+        } else {
+
+            // Desktop: restore timeline inside map
+            original.style.removeProperty("display");
+
+            // Remove mobile copy
+            container.replaceChildren();
+
+        }
+    }
+
+    mediaQuery.addEventListener("change", updateLayout);
+
+    updateLayout();
+
+    // Cleanup when the map is replaced
+    return function cleanup() {
+
+        mediaQuery.removeEventListener("change", updateLayout);
+
+        original.style.removeProperty("display");
+
+        container.replaceChildren();
+    };
+}
 
 // =========================================================
 // PERFORM SEARCH
@@ -294,6 +493,14 @@ async function searchMap() {
 
         resultsContainer.textContent = "Please enter a query.";
         return;
+    }
+
+    // Remove the previous mobile timeline before a new search
+    if (mobileTimelineCleanup) {
+
+        mobileTimelineCleanup();
+
+        mobileTimelineCleanup = null;
     }
 
     // Collect search parameters
@@ -362,7 +569,10 @@ async function searchMap() {
         // Display retrieval scatter plot
         renderRetrievalScatter(data.results);
 
-        // Display generated Folium map
+        // =========================================================
+        // DISPLAY FOLIUM MAP + RESPONSIVE MOBILE TIMELINE
+        // =========================================================
+
         if (data.map_html) {
 
             const iframe = document.createElement("iframe");
@@ -370,14 +580,74 @@ async function searchMap() {
             iframe.className = "results-map";
             iframe.title = "Ask the Map search results";
 
+            let timelineTimer = null;
+
+            iframe.addEventListener("load", () => {
+
+                if (!iframe.isConnected) return;
+
+                console.log("[MAP] Folium iframe loaded.");
+
+                let attempts = 0;
+                const maxAttempts = 100;
+
+                timelineTimer = setInterval(() => {
+
+                    if (!iframe.isConnected) {
+                        clearInterval(timelineTimer);
+                        return;
+                    }
+
+                    attempts++;
+
+                    let originalTimeline = null;
+
+                    try {
+                        originalTimeline = iframe.contentDocument
+                            ?.querySelector(".atm-time-filter");
+                    } catch (error) {
+                        console.error("[TIMELINE] Iframe access failed:", error);
+                        clearInterval(timelineTimer);
+                        return;
+                    }
+
+                    if (originalTimeline) {
+
+                        clearInterval(timelineTimer);
+
+                        console.log("[TIMELINE] Original timeline found.");
+
+                        mobileTimelineCleanup = setupMobileTimeline(iframe);
+
+                        console.log(
+                            "[TIMELINE] Mobile layout initialised:",
+                            Boolean(mobileTimelineCleanup)
+                        );
+
+                        return;
+                    }
+
+                    if (attempts >= maxAttempts) {
+
+                        clearInterval(timelineTimer);
+
+                        console.warn(
+                            "[TIMELINE] Timeline could not be initialised."
+                        );
+                    }
+
+                }, 100);
+
+            });
+
             iframe.srcdoc = data.map_html;
 
             mapContainer.replaceChildren(iframe);
 
         } else {
 
-            mapContainer.textContent =
-                "No matching observations found.";
+            mapContainer.textContent = "No matching observations found.";
+
         }
 
     } catch (error) {
